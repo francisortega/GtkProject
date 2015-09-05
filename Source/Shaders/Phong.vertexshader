@@ -1,0 +1,71 @@
+#version 330 core
+
+/**
+ * Phong Vertex Shader
+ *
+ * @author Francis Ortega
+ *		- light vector array for multiple light sources
+ * @version August 2014
+ * @copyright (c) 2014 Concordia University. All rights reserved.
+ */
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 1) in vec3 vertexNormal_modelspace;  // You will need this when you do lighting
+layout(location = 2) in vec3 vertexColor; // if z > 1: then x and y are u and v respectively
+
+// output to Fragment Shader
+out vec3 v_color;
+
+out vec3 normal;          // Transformed normal in View Space
+out vec3 eyeVector;       // Vector from the vertex to the Camera in View Space
+out vec4 lightVector[3];     // Vector from the vertex to the Light in View Space
+						  // Length of lightVector is the distance between light and vertexs
+out mat4 MV;
+
+// Uniform
+// Values that stay constant for the whole mesh.
+uniform mat4 WorldTransform;
+uniform mat4 ViewTransform;
+uniform mat4 ProjectonTransform;
+//out mat4 ProjectonTransform;
+
+// light position
+uniform vec4 WorldLightPositions[50]; // if w = 1: Point light, if w = 0: directional light
+uniform int NUM_LIGHTS; // Number of light sources
+
+out vec4 pointCoord;
+
+void main()
+{
+	// Get the vertex (point/fragment) coordinates in world space
+	pointCoord = WorldTransform * vec4(vertexPosition_modelspace, 1);
+
+	MV = ViewTransform * WorldTransform;
+	mat4 MVP = ProjectonTransform * MV;
+
+	// Output position of the vertex, in clip space : MVP * position
+	gl_Position =  MVP * vec4(vertexPosition_modelspace, 1);
+
+	// Prepare Data for Fragment Shader
+	normal = normalize(vec3(transpose(inverse(MV)) * vec4(vertexNormal_modelspace, 0)));
+
+	vec4 vertexPosition_viewspace = MV * vec4(vertexPosition_modelspace, 1);
+
+	eyeVector = normalize(-vec3(vertexPosition_viewspace));
+
+	v_color = vertexColor;
+	
+	// Calculate each light vector
+	for(int i = 0; i < NUM_LIGHTS; i++)
+	{
+		if (WorldLightPositions[i].w > 0) // Point light
+		{
+			lightVector[i] = vec4(vec3((ViewTransform * WorldLightPositions[i]) - (vertexPosition_viewspace)), WorldLightPositions[i].w);
+		}
+		else // Directional
+		{
+			lightVector[i] = vec4(vec3(ViewTransform * WorldLightPositions[i]), WorldLightPositions[i].w);
+		}
+	}
+}

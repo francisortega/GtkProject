@@ -1,0 +1,72 @@
+# This should draw a coordinate system with 3 colored axes
+
+[Skybox4]
+name = "Skybox4"
+position = 0.0f 0.0f 0.0f
+scaling = 1.2f 1.2f 1.2f
+
+[Skybox3]
+name = "Skybox3"
+position = 0.0f 0.0f 0.0f
+scaling = 1.1f 1.1f 1.1f
+
+[Skybox2]
+name = "Skybox2"
+position = 0.0f 0.0f 0.0f
+scaling = 1.0f 1.0f 1.0f
+
+[Skybox1]
+name = "Skybox1"
+position = 0.0f 0.0f 0.0f
+scaling = 0.9f 0.9f 0.9f
+
+[Grass]
+name = "Scene Ground"
+position = 0.0f 0.0f 0.0f
+
+[RubiksCube]
+name = "RubiksCube"
+position = 0.0f 0.93f 2.7f
+
+[House]
+name = "House"
+position = 0.0f 0.0f 0.0f
+
+[HouseDoor]
+name = "HouseDoor"
+position = 3.57f 0.25f -1.787f
+scaling = 0.00475f 0.00475f 0.00475f
+rotation = 0 1 0 90.0f
+
+[LightSwitch]
+name = "LightSwitch"
+position = -3.38f 1.2f -1.78f
+scaling = 0.05f 0.05f 0.05f
+
+[Sofa]
+name = "Sofa"
+position = -3.0f 0.25f -4.3f
+scaling = 0.01f 0.01f 0.01f
+
+[Table]
+name = "Table"
+position = 0.0f 0.25f 2.7f
+scaling = 0.4f 0.4f 0.4f
+
+[LightBulb]
+name = "LightBulb"
+position = -2.0f 2.3f -1.78f
+
+[Sun]
+name = "Sun"
+position = 0.0f 20.0f 0.0f
+
+[Moon]
+name = "Moon"
+position = 0.0f -20.0f 0.0f
+
+[WindowFrame]
+name = "Window"
+position = 3.57f 1.6f 0.9f
+scaling = 1.25f 0.8f 0.7f
+rotation = 0 1 0 90.0f

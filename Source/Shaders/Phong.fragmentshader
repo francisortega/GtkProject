@@ -1,0 +1,199 @@
+#version 330 core
+
+/**
+ * Phong Fragment Shader
+ *
+ * @author Francis Ortega
+ *		- Loop through array of light vectors and light colors for multiple light sources
+ *		- Determine whether a light vector is passing through window via ray-plane intersection algorithm
+ * @version August 2014
+ * @copyright (c) 2014 Concordia University. All rights reserved.
+ */
+
+// Light and Material Uniform Variables
+uniform vec4 materialCoefficients; // x: ambient   y: diffuse   z: specular   w: specular exponent
+
+uniform vec3 lightColor[3];
+uniform vec3 lightAttenuation; // x: kC  y: kL  z: kQ
+uniform float modelTransparency;
+uniform float noShading; // 1.0 if shading should not be applied
+
+// Uniform variables - static
+uniform vec4 L; // Plane vector
+uniform vec4 WorldLightPositions[50]; // Light Positions
+uniform int NUM_LIGHTS; // Number of light sources
+
+// Window range boundaries - (x:min,y:max)
+uniform vec2 windowRangeX;
+uniform vec2 windowRangeY;
+uniform vec2 windowRangeZ;
+
+// House range boundaries - (x:min,y:max)
+uniform vec2 houseRangeX;
+uniform vec2 houseRangeY;
+uniform vec2 houseRangeZ;
+
+uniform mat4 ProjectonTransform;
+uniform sampler2D mTexture;
+
+// Inputs
+in vec3 v_color;		 // vertex color: also diffuse color
+						 // if z > 1: then x and y are u and v respectively
+
+in vec3 normal;          // Transformed normal in View Space
+in vec3 eyeVector;       // Vector from the vertex to the Camera in View Space
+in vec4 lightVector[3];     // Vector from the vertex to the Light in View Space
+						 // Length of lightVector is the distance between light and vertex
+						 // if w = 1: Point light, if w = 0: directional light
+in mat4 MV;
+
+struct meh
+{
+	vec4 color;
+	float density;
+	float start;
+	float end;
+	float scale;
+};
+uniform meh poop;
+
+// Ouput data
+out vec4 finalColor;
+
+// Usable functions
+int inWindowRange(vec4);
+int inHouseRange(vec4);
+
+in vec4 pointCoord;
+#define MAX_LIGHTS 3
+uniform mat4 ViewTransform;
+
+void main()
+{
+	vec3 color = vec3(0, 0, 0);
+
+	// Intensity for global ambient light
+	vec3 ambientIntensity = vec3(0.5);
+	vec3 vertexColor;
+
+	// Check if a texture is to be applied
+	if (v_color.z > 1.0)
+	{
+		vertexColor = texture(mTexture, vec2(v_color)).rgb;
+	}
+	else 
+	{
+		vertexColor = v_color;
+	}
+
+	// Check if no shading is required
+	if (noShading > 0.0)
+	{
+		color = vertexColor;
+	}
+	else
+	{
+		vec3 Ia = materialCoefficients.x * ambientIntensity;
+
+		// Loop through each light source
+		for (int i = 0; i < MAX_LIGHTS; i++)
+		{
+			/* Determine whether the light is passing through the window part - Ray-plane intersection */
+
+			// Check light source if outside the house and point/fragment is inside the house
+			if (inHouseRange(WorldLightPositions[i]) == 0 &&
+				inHouseRange(pointCoord) == 1)
+			{
+				// Calculate the point of intersection by the obtained point/fragment coordinate, normal vector, and light vector
+				vec4 Pints = pointCoord - (dot(L, pointCoord) / dot(L, normalize(inverse(ViewTransform) * vec4(lightVector[i].xyz, 0)))) * normalize(inverse(ViewTransform) * vec4(lightVector[i].xyz, 0));
+
+				// Check whether this point is in window range
+				if (inWindowRange(Pints) == 0) 
+				{
+					continue; // Do not light fragment if light from outside the house didn't pass through the window range
+				}
+			
+			} else if (inHouseRange(WorldLightPositions[i]) == 1 &&
+						inHouseRange(pointCoord) == 0) {
+				continue;
+			}
+			/* \Light through the window */
+
+			float attenuation = 1.0;
+			if (lightVector[i].w > 0)
+			{
+				// The distance between the light source and the vertex
+				float distance = length(vec3(lightVector[i]));
+
+				// The attenuation calculation based off the inverse quadratic
+				attenuation = 1 / (lightAttenuation.x + (lightAttenuation.y * distance) + (lightAttenuation.z * distance * distance));
+			}
+
+			// Normal dot product with the light vector
+			float NL = max(dot(normal, normalize(vec3(lightVector[i]))), 0);
+
+			// Light components
+			vec3 Id = materialCoefficients.y * NL * lightColor[i];
+			vec3 Is = vec3(0, 0, 0);
+
+			// If NL is equal to zero, then the Normal and Light vectors are either ortogonal or pointing in opposite directions
+			if (NL > 0)
+			{
+				// The reflected ray vector
+				vec3 R = normalize(((2 * NL) * normal) - normalize(vec3(lightVector[i])));
+				float ER = max(dot(eyeVector, R), 0);
+
+				Is = materialCoefficients.z * pow(ER, materialCoefficients.w) * lightColor[i];
+			}
+
+			color += ((Id + Is) * attenuation);
+		} // end for number of lights
+
+		// Add the ambient component
+		color = (Ia + color) * vertexColor;
+	}
+
+	finalColor = vec4(color, modelTransparency);
+}
+
+/**
+ * inWindowRange
+ *
+ * Checks whether a certain point in plain is within the window range
+ *
+ * @param pointCoord - point coordinates (x, y, z)
+ * @return int result if within range
+ */
+int inWindowRange(vec4 pointCoord)
+{
+	// Check if in range
+	if((pointCoord.x >= windowRangeX.x - 0.001 && pointCoord.x <= windowRangeX.y + 0.001) &&
+		(pointCoord.y >= windowRangeY.x - 0.001 && pointCoord.y <= windowRangeY.y + 0.001) &&
+		(pointCoord.z >= windowRangeZ.x - 0.001 && pointCoord.z <= windowRangeZ.y + 0.001))
+	{
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+/**
+ * inHouseRange
+ *
+ * Checks whether a certain point in plain is within the house range
+ *
+ * @param pointCoord - point coordinates (x, y, z)
+ * @return int result if within range
+ */
+int inHouseRange(vec4 pointCoord)
+{
+	// Check if in range
+	if((pointCoord.x >= houseRangeX.x + 0.25 && pointCoord.x <= houseRangeX.y - 0.25) &&
+		(pointCoord.y >= houseRangeY.x + 0.001 && pointCoord.y <= houseRangeY.y - 0.001) &&
+		(pointCoord.z >= houseRangeZ.x + 0.25 && pointCoord.z <= houseRangeZ.y - 0.25))
+	{
+		return 1;
+	} else {
+		return 0;
+	}
+}

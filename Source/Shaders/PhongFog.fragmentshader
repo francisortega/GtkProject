@@ -1,0 +1,87 @@
+#version 330 core
+
+// Light and Material Uniform Variables
+uniform vec4 materialCoefficients; // x: ambient   y: diffuse   z: specular   w: specular exponent
+
+uniform vec3 lightColor[3];
+uniform vec3 lightAttenuation; // x: kC  y: kL  z: kQ
+uniform float modelTransparency;
+uniform float noShading; // 1.0 if shading should not be applied
+
+// Inputs
+in vec3 v_color;		 // vertex color: also diffuse color
+						 // if z > 1: then x and y are u and v respectively
+
+in vec3 normal;          // Transformed normal in View Space
+in vec3 eyeVector;       // Vector from the vertex to the Camera in View Space
+in vec4 lightVector[3];     // Vector from the vertex to the Light in View Space
+						 // Length of lightVector is the distance between light and vertex
+						 // if w = 1: Point light, if w = 0: directional light
+
+in vec2 UV;
+
+#define MAX_LIGHTS 3
+
+uniform sampler2D mTexture;
+
+void main()
+{
+	vec3 color = vec3(0, 0, 0);
+
+	for (int i = 0; i < MAX_LIGHTS; i++)
+	{
+		float attenuation = 1.0;
+
+		if (lightVector[i].w > 0)
+		{
+			// The distance between the light source and the vertex
+				float distance = length(vec3(lightVector[i]));
+
+			// The attenuation calculation based off the inverse quadratic
+			attenuation = 1 / (lightAttenuation.x + (lightAttenuation.y * distance) + (lightAttenuation.z * distance * distance));
+		}
+
+		// Normal dot product with the light vector
+		float NL = max(dot(normal, normalize(vec3(lightVector[i]))), 0);
+
+		// Light components
+		vec3 Ia = materialCoefficients.x * lightColor[i];
+		vec3 Id = materialCoefficients.y * NL * lightColor[i];
+		vec3 Is = vec3(0, 0, 0);
+
+		// If NL is equal to zero, then the Normal and Light vectors are either ortogonal or pointing in opposite directions
+		if (NL > 0)
+		{
+			// The reflected ray vector
+			vec3 R = normalize(((2 * NL) * normal) - normalize(vec3(lightVector[i])));
+			float ER = max(dot(eyeVector, R), 0);
+
+			Is = materialCoefficients.z * pow(ER, materialCoefficients.w) * lightColor[i];
+		}
+
+		// Final fragment color
+		if (v_color.z > 1)
+		{
+			if (noShading > 0.0)
+			{
+				color = texture(mTexture, vec2(v_color)).rgb;
+			}
+			else
+			{
+				color += (Ia + ((Id + Is) * attenuation)) * texture(mTexture, vec2(v_color)).rgb;
+			}
+		} 
+		else
+		{
+				color += (Ia + ((Id + Is) * attenuation)) * v_color;
+		}
+	}
+
+	const float exp = 1.442695;
+	float zCoord = gl_FragCoord.z / gl_FragCoord.w;
+	float fogFactor = exp2( -gl_Fog.density * gl_Fog.density * zCoord * zCoord * exp );
+	fogFactor = clamp(fogFactor, 0.0, 1.0);
+
+	vec4 newColor1 = vec4(color, modelTransparency);
+	gl_FragColor = mix(vec4(0,0,0,0.15), newColor1, 1.75);
+}	
